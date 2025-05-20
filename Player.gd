@@ -22,9 +22,19 @@ var is_crouching = false
 var is_aiming = false
 var is_reloading = false
 
+# Ссылки на узлы
 @onready var camera = $Camera3D
 @onready var weapon_pivot = $WeaponPivot
 @onready var interaction_ray = $Camera3D/InteractionRay
+
+# HUD элементы
+@onready var health_bar: ProgressBar = $CanvasLayer/HealthBar
+@onready var armor_bar: ProgressBar = $CanvasLayer/ArmorBar
+@onready var money_label: Label = $CanvasLayer/MoneyLabel
+@onready var faction_label: Label = $CanvasLayer/FactionLabel
+@onready var ammo_label: Label = $CanvasLayer/AmmoLabel
+@onready var crosshair: ColorRect = $CanvasLayer/Crosshair
+@onready var interaction_label: Label = $CanvasLayer/InteractionLabel
 
 func _ready():
     Input.set_mouse_mode(Input.MOUSE_MODE_CAPTURED)
@@ -102,18 +112,40 @@ func add_money(amount: int):
     update_hud()
 
 func update_hud():
-    var hud = get_node("/root/Main/CanvasLayer/HUD")
-    if hud:
-        hud.update_health(health, max_health)
-        hud.update_armor(armor, max_armor)
-        hud.update_money(money)
-        hud.update_faction(faction)
+    # Обновление здоровья
+    if health_bar:
+        health_bar.max_value = max_health
+        health_bar.value = health
+    
+    # Обновление брони
+    if armor_bar:
+        armor_bar.max_value = max_armor
+        armor_bar.value = armor
+    
+    # Обновление денег
+    if money_label:
+        money_label.text = "$%d" % money
+    
+    # Обновление фракции
+    if faction_label:
+        faction_label.text = faction.capitalize()
+    
+    # Обновление боеприпасов (если есть оружие)
+    if ammo_label and current_weapon and current_weapon.has_method("get_ammo_info"):
+        var ammo_info = current_weapon.get_ammo_info()
+        ammo_label.text = "%d/%d" % [ammo_info[0], ammo_info[1]]
 
 func interact():
     if interaction_ray.is_colliding():
         var collider = interaction_ray.get_collider()
         if collider.has_method("on_interact"):
             collider.on_interact(self)
+            # Показываем текст взаимодействия
+            if interaction_label and collider.has_method("get_interaction_text"):
+                interaction_label.text = collider.get_interaction_text()
+                interaction_label.visible = true
+    elif interaction_label:
+        interaction_label.visible = false
 
 func die():
     # Обработка смерти игрока
@@ -127,3 +159,17 @@ func equip_weapon(weapon_scene: PackedScene):
     var new_weapon = weapon_scene.instantiate()
     weapon_pivot.add_child(new_weapon)
     current_weapon = new_weapon
+    update_hud()  # Обновляем HUD при смене оружия
+
+func update_crosshair(hit: bool):
+    if crosshair:
+        crosshair.color = Color.RED if hit else Color.WHITE
+
+func show_interaction_text(text: String):
+    if interaction_label:
+        interaction_label.text = text
+        interaction_label.visible = true
+
+func hide_interaction_text():
+    if interaction_label:
+        interaction_label.visible = false
